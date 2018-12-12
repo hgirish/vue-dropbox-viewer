@@ -1,5 +1,5 @@
 window.onhashchange = () => {
-  app.updateHash();
+  app.$store.commit('updateHash');
 }
 
 function sleep(milliseconds) {
@@ -11,21 +11,24 @@ function sleep(milliseconds) {
   }
 }
 
+
 const app = new Vue({
   el: '#app',
+  store,
   data: {
     path: '',
   },
-  methods: {
-    updateHash() {
-      let hash = window.location.hash.substring(1);
-      this.path = (hash || '');
-    },
+  computed: {
+
   },
+  methods: {},
   created() {
-    this.updateHash();
+    store.commit('updateHash');
   },
   template: `
-<dropbox-viewer :path="path"></dropbox-viewer>
+  <div>
+<dropbox-viewer></dropbox-viewer>
+
+</div>
 `
 });

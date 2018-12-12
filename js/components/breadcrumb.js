@@ -8,20 +8,17 @@ v-bind:href="f.path">{{ f.name || 'Home' }}</a>
 </span>
 </div>
 `,
-  props: {
-    p: String,
-  },
-  methods: {
-
-  },
   computed: {
     folders() {
       let output = [];
       let slug = '';
-      let parts = this.p.split('/');
+      let parts = this.$store.state.path.split('/');
       for (let item of parts) {
         slug += item;
-        output.push({ 'name': item || 'home', 'path': '#' + slug });
+        output.push({
+          'name': item || 'home',
+          'path': '#' + slug
+        });
         slug += '/';
       }
       return output;

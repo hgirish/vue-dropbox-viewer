@@ -6,12 +6,9 @@ Vue.component('dropbox-viewer', {
       isLoading: true,
     }
   },
-  props: {
-    path: String,
-  },
   created() {
     this.accessToken = appConfig.accessToken;
-    this.getFolderStructure(this.path);
+    this.getFolderStructure();
   },
   methods: {
     dropbox() {
@@ -19,38 +16,64 @@ Vue.component('dropbox-viewer', {
         accessToken: this.accessToken
       })
     },
-    getFolderStructure(path) {
-      this.dropbox().filesListFolder({
-        path: path,
-        include_media_info: true
-      })
-        .then(response => {
-          // console.log(response.entries);
-          // sleep(1000);
-          const structure = {
-            folders: [],
-            files: []
-          };
-          for (let entry of response.entries) {
-            if (entry['.tag'] === 'folder') {
-              structure.folders.push(entry);
-            } else {
-              structure.files.push(entry);
-            }
-          }
-          this.structure = structure;
-          this.isLoading = false;
-        })
-        .catch(error => {
-          console.error(error);
-          this.isLoading = 'error';
-        })
+    createFolderStructure(response) {
+      const structure = {
+        folders: [],
+        files: []
+      };
+      for (let entry of response.entries) {
+        if (entry['.tag'] === 'folder') {
+          structure.folders.push(entry);
+        } else {
+          structure.files.push(entry);
+        }
+      }
+      this.structure = structure;
+      this.isLoading = false;
+
+
     },
-    updateStructure(path) {
+    createStructureAndSave(response) {
+      this.createFolderStructure(response);
+      this.$store.commit('structure', {
+        path: this.slug,
+        data: response
+      });
+    },
+    getFolderStructure() {
+      let data = this.$store.state.structure[this.slug];
+      if (data) {
+        this.createFolderStructure(data);
+      } else {
+        this.dropbox().filesListFolder({
+            path: this.path,
+            include_media_info: true
+          })
+          .then(this.createStructureAndSave)
+          .catch(error => {
+            console.error(error);
+            this.isLoading = 'error';
+          })
+      }
+    },
+    updateStructure() {
       this.isLoading = true;
-      this.getFolderStructure(path);
+      this.getFolderStructure();
     },
 
+  },
+  computed: {
+    path() {
+      return this.$store.state.path;
+    },
+    slug() {
+      return this.path.toLowerCase()
+        .replace(/^\/|\/$/g, '')
+        .replace(/ /g, '-')
+        .replace(/\//g, '-')
+        .replace(/[-]+/g, '-')
+        .replace(/[^\w-]+/g, '');
+    },
   },
   watch: {
     path() {
@@ -73,7 +96,7 @@ Vue.component('dropbox-viewer', {
   </transition>
   <transition name="fade">
   <div v-if="!isLoading">
-  <breadcrumb v-bind:p="path"></breadcrumb>
+  <breadcrumb></breadcrumb>
   <template v-for="f in structure.folders">
 <folder v-bind:f="f"></folder>
   </template>
