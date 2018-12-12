@@ -10,6 +10,7 @@ function sleep(milliseconds) {
     }
   }
 }
+
 const app = new Vue({
   el: '#app',
   data: {
