@@ -1,3 +1,7 @@
+/**
+ * The dropbox component
+ * @example <dropbox-viewer></dropbox-viewer>
+ */
 Vue.component('dropbox-viewer', {
   data() {
     return {
@@ -8,27 +12,41 @@ Vue.component('dropbox-viewer', {
   },
   created() {
     this.accessToken = appConfig.accessToken;
+    // Display the current path & cache parent folders
     this.displayFolderStructure();
+    this.cacheParentFolders();
   },
   watch: {
     path() {
       this.displayFolderStructure();
     },
-    structure: {
-      deep: true,
-      handler() {
-        for (let folder of this.structure.folders) {
-          this.getFolderStructure(folder.path_lower);
-        }
-      }
-    }
+
   },
   methods: {
+    /**
+     * Dropbox API instance
+     * @return {object}
+     */
     dropbox() {
       return new Dropbox.Dropbox({
         accessToken: this.accessToken
       })
     },
+    /**
+     * Loop through the breadcrumb and cache parent folders
+     */
+    cacheParentFolders() {
+      let parents = this.$store.state.breadcrumb;
+      parents.reverse().shift();
+
+      for (let parent of parents) {
+        this.getFolderStructure(parent.path);
+      }
+    },
+    /**
+     * Display the contents of getFolderStructure
+     * Updates the output to display the folders and files
+     */
     displayFolderStructure() {
       this.isLoading = true;
 
@@ -48,6 +66,11 @@ Vue.component('dropbox-viewer', {
         this.isLoading = false;
       })
     },
+    /**
+     * Retrieve the folder structure from the cache or Dropbox API
+     * @param {string} path  The folder path
+     * @returns {Promise} A promise containing the folder data
+     */
     getFolderStructure(path) {
       let output;
 
@@ -57,13 +80,11 @@ Vue.component('dropbox-viewer', {
       if (data) {
         output = Promise.resolve(data);
       } else {
-        console.log(`API query for ${path}`);
         output = this.dropbox().filesListFolder({
           path: path,
           include_media_info: true
         })
           .then(response => {
-            console.log(`Response for ${path}`);
             let entries = response.entries;
             this.$store.commit('structure', {
               path: slug,
@@ -73,12 +94,17 @@ Vue.component('dropbox-viewer', {
           })
           .catch(error => {
             this.isLoading = 'error';
-            console.log(error);
+            console.error(error);
           })
       }
 
       return output;
     },
+    /**
+     * Generate clean URL
+     * @param {string} path
+     * @return {string} A cache-friendly URL without punctuation/symbols
+     */
     generateSlug(path) {
       return path.toLowerCase()
         .replace(/^\/|\/$/g, '')
@@ -89,6 +115,7 @@ Vue.component('dropbox-viewer', {
     },
   },
   computed: {
+    // The current folder path
     path() {
       return this.$store.state.path;
     },
@@ -112,11 +139,11 @@ Vue.component('dropbox-viewer', {
   <transition name="fade">
   <div v-if="!isLoading">
   <breadcrumb></breadcrumb>
-  <template v-for="f in structure.folders">
-<folder v-bind:f="f"></folder>
+  <template v-for="entry in structure.folders">
+<folder :f="entry" :cache="getFolderStructure"></folder>
   </template>
-  <template v-for="f in structure.files">
-<file v-bind:d="dropbox()" v-bind:f="f"></file>
+  <template v-for="entry in structure.files">
+<file v-bind:d="dropbox()" v-bind:f="entry"></file>
   </template>
   </ul>
   </div>

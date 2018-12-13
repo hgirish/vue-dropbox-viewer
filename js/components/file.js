@@ -1,3 +1,10 @@
+/**
+* File component display size of file and download link
+* @example <file :d="dropbox()" :f="entry"></file>
+*
+* @param {object} f The file entry from the tree
+* @param {object} d The dropbox instance from the parent component
+*/
 Vue.component('file', {
   props: {
     f: Object,
@@ -5,19 +12,32 @@ Vue.component('file', {
   },
   data() {
     return {
+      // List of file size
       byteSizes: ['Bytes', 'KB', 'MB', 'GB', 'TB'],
+      // The download link
       link: false,
     }
   },
   created() {
-    this.d.filesGetTemporaryLink({
-      path:
-        this.f.path_lower
-    }).then(data => {
-      this.link = data.link;
-    })
+    // If the download link has be retrieved from the API, use it
+    // if not, query the API
+    if (this.f.download_link) {
+      this.link = this.f.download_link;
+    } else {
+      this.d.filesGetTemporaryLink({
+        path:
+          this.f.path_lower
+      }).then(data => {
+        this.f.download_link = this.link = data.link;
+      })
+    }
   },
   methods: {
+    /**
+     * Convert an integer to a human readable file size
+     * @param {integer} bytes
+     * @return {string}
+     */
     bytesToSize(bytes) {
       let output = '0 Byte';
       if (bytes > 0) {

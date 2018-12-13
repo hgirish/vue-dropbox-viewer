@@ -15,14 +15,8 @@ function sleep(milliseconds) {
 const app = new Vue({
   el: '#app',
   store,
-  data: {
-    path: '',
-  },
-  computed: {
 
-  },
-  methods: {},
-  created() {
+  mounted() {
     store.commit('updateHash');
   },
   template: `
