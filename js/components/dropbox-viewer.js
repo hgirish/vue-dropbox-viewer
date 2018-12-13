@@ -8,7 +8,20 @@ Vue.component('dropbox-viewer', {
   },
   created() {
     this.accessToken = appConfig.accessToken;
-    this.getFolderStructure();
+    this.displayFolderStructure();
+  },
+  watch: {
+    path() {
+      this.displayFolderStructure();
+    },
+    structure: {
+      deep: true,
+      handler() {
+        for (let folder of this.structure.folders) {
+          this.getFolderStructure(folder.path_lower);
+        }
+      }
+    }
   },
   methods: {
     dropbox() {
@@ -16,58 +29,58 @@ Vue.component('dropbox-viewer', {
         accessToken: this.accessToken
       })
     },
-    createFolderStructure(response) {
+    displayFolderStructure() {
+      this.isLoading = true;
+
       const structure = {
         folders: [],
         files: []
       };
-      for (let entry of response.entries) {
-        if (entry['.tag'] === 'folder') {
-          structure.folders.push(entry);
-        } else {
-          structure.files.push(entry);
+      this.getFolderStructure(this.path).then(data => {
+        for (let entry of data) {
+          if (entry['.tag'] === 'folder') {
+            structure.folders.push(entry);
+          } else {
+            structure.files.push(entry);
+          }
         }
-      }
-      this.structure = structure;
-      this.isLoading = false;
-
-
+        this.structure = structure;
+        this.isLoading = false;
+      })
     },
-    createStructureAndSave(response) {
-      this.createFolderStructure(response);
-      this.$store.commit('structure', {
-        path: this.slug,
-        data: response
-      });
-    },
-    getFolderStructure() {
-      let data = this.$store.state.structure[this.slug];
+    getFolderStructure(path) {
+      let output;
+
+      const slug = this.generateSlug(path);
+      const data = this.$store.state.structure[slug];
+
       if (data) {
-        this.createFolderStructure(data);
+        output = Promise.resolve(data);
       } else {
-        this.dropbox().filesListFolder({
-            path: this.path,
-            include_media_info: true
+        console.log(`API query for ${path}`);
+        output = this.dropbox().filesListFolder({
+          path: path,
+          include_media_info: true
+        })
+          .then(response => {
+            console.log(`Response for ${path}`);
+            let entries = response.entries;
+            this.$store.commit('structure', {
+              path: slug,
+              data: entries
+            });
+            return entries;
           })
-          .then(this.createStructureAndSave)
           .catch(error => {
-            console.error(error);
             this.isLoading = 'error';
+            console.log(error);
           })
       }
-    },
-    updateStructure() {
-      this.isLoading = true;
-      this.getFolderStructure();
-    },
 
-  },
-  computed: {
-    path() {
-      return this.$store.state.path;
+      return output;
     },
-    slug() {
-      return this.path.toLowerCase()
+    generateSlug(path) {
+      return path.toLowerCase()
         .replace(/^\/|\/$/g, '')
         .replace(/ /g, '-')
         .replace(/\//g, '-')
@@ -75,11 +88,13 @@ Vue.component('dropbox-viewer', {
         .replace(/[^\w-]+/g, '');
     },
   },
-  watch: {
+  computed: {
     path() {
-      this.updateStructure(this.path);
-    }
+      return this.$store.state.path;
+    },
+
   },
+
   template: `
   <div>
   <h1>Dropbox</h1>
